@@ -69,17 +69,17 @@ def find_recipes(search_terms, user_id):
         conn = connect_db()
         cursor = conn.cursor()
         
-        # Split terms inot words
+        #Разобьём условия на слова
         terms = [preproc_query(word) for word in search_terms]
         words = [term.strip().lower() for term in ' '.join(terms).split()]
         
         ingredient_placeholders = ['ingredients LIKE ?'] * len(words)
         name_placeholders = ['name COLLATE NOCASE LIKE ?'] * len(words)
         
-        # Clause for finding recipes
+        #Шаблон запроса
         where_clause = ' OR '.join(ingredient_placeholders + name_placeholders)
         
-        # Search params
+        #Параметры поиска
         params = [f'%{word}%' for word in words] * 2
         
         query = f"""
@@ -93,16 +93,16 @@ def find_recipes(search_terms, user_id):
         cursor.execute("SELECT url FROM FAVORITE_RECIPES WHERE user_id = ?", (user_id,))
         favorite_urls = {row[0] for row in cursor.fetchall()}  # Use a set for faster lookup
 
-        # Count matches
+        #Считаем совпадения
         recipe_scores = []
         
         for url, name, ingredients in matches:
             score = sum(1 for word in words if word in ingredients.lower() or word in name.lower())
             if url in favorite_urls:
-                score *= 2  # Double the score if recipe is in favorites (personalized search)
+                score *= 2  #Удваиваем счёт, если есть совпадения с избранным (персонализация поиска)
             recipe_scores.append((url, name, ingredients, score))
         
-        # Sort recipes by score to show most relevant recipes first
+        #Сортируем рецепты по релевантности
         sorted_recipes = sorted(recipe_scores, key=lambda x: x[3], reverse=True)
 
         return sorted_recipes
@@ -244,10 +244,8 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
 
     user_id = query.from_user.id 
     
-    # Check if user has a valid state
     if user_id not in user_state_manager.states:
         user_state_manager.set_state(user_id, {'recipes': None, 'page': 0})
-        # return
 
     state = user_state_manager.get_state(user_id)
 
@@ -260,7 +258,7 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
         return
 
 
-    # Handle favorite recipe addition
+    #Добавление рецепта в избранное
     if query.data.startswith('favorite_'):
         url = query.data.split('_', 1)[1]  
         recipe_name = next((name for url_, name, _, _ in state['recipes'] if url_ == url), None)
@@ -272,19 +270,18 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
             else:
                 await context.bot.send_message(chat_id=user_id, text=f'Не удалось добавить рецепт :(')
 
-    # Update page number based on button pressed
+    #Обновление страницы
     elif query.data == 'next':
         state['page'] += 1 
     elif query.data == 'previous':
         state['page'] -= 1 
     
-    # Check for out of bounds
+    #Проверка выхода за пределы страниц
     if state['page'] < 0:
         state['page'] = 0
     
     logger.info(f"User {user_id} navigated to page {state['page']}.")
     
-    # Display recipes based on updated state
     await display_recipes(user_id, context)
     
     
