@@ -1,0 +1,6 @@
+.vscode
+*.db
+*.csv
+logs.txt
+dashboard
+tokens.txt
